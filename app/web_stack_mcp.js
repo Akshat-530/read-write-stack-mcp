@@ -28,6 +28,7 @@ let nextId = 1000;
 let serverName = 'Web-Stack';
 let serverVersion = '1.0.0';
 let keyProxyCfg = null;
+let helperPrefix = 'web_stack';   // overridable via config.server.helperPrefix
 const upstreams = new Map();   // name -> Upstream
 let route = new Map();         // exposedName -> { up, originalName }
 
@@ -135,6 +136,7 @@ async function reconcile() {
   let cfg;
   try { cfg = readConfig(); } catch (e) { log('config read failed: ' + e.message); return; }
   if (cfg.server) { serverName = cfg.server.name || serverName; serverVersion = cfg.server.version || serverVersion; }
+  helperPrefix = (cfg.server && cfg.server.helperPrefix) || cfg.helperPrefix || helperPrefix;
   if (cfg.keyProxy) keyProxyCfg = cfg.keyProxy;
   const seen = new Set();
   for (const u of (cfg.upstreams || [])) {
@@ -188,14 +190,16 @@ function build() {
   return tools;
 }
 
-const LOCAL_TOOLS = [
-  { name: 'web_stack_status', description: 'Report Web-Stack aggregation status: each upstream (tavily, firecrawl, context7, fatsearch, playwright, chrome, stealth), reachability, tool counts and any error, plus the local tools.', inputSchema: { type: 'object', properties: {} } },
-  { name: 'web_stack_refresh', description: 'Re-fetch the tool lists from all upstreams and reload the Web-Stack config (include/exclude/prefix).', inputSchema: { type: 'object', properties: {} } },
-  { name: 'web_stack_rotation', description: 'Report the MCP key-rotation relay (key-proxy) health for the rotating upstreams: tavily, firecrawl, context7 - key count, rotations and call totals per relay (no secrets).', inputSchema: { type: 'object', properties: {} } }
-];
+function localTools() {
+  return [
+    { name: helperPrefix + '_status', description: 'Report this MCP stack\'s aggregation status: every upstream, reachability, tool counts and any error, plus these helper tools.', inputSchema: { type: 'object', properties: {} } },
+    { name: helperPrefix + '_refresh', description: 'Re-fetch the tool lists from all upstreams and reload the config (include/exclude/prefix/enabled).', inputSchema: { type: 'object', properties: {} } },
+    { name: helperPrefix + '_rotation', description: 'Report the API-key rotation relay health (key count, rotations, calls per relay) — no secrets. Empty if this stack has no key rotation.', inputSchema: { type: 'object', properties: {} } }
+  ];
+}
 
 async function localCall(name) {
-  if (name === 'web_stack_status') {
+  if (name === helperPrefix + '_status') {
     const st = [];
     for (const up of upstreams.values()) {
       let exposed = 0;
@@ -205,9 +209,9 @@ async function localCall(name) {
       }
       st.push({ name: up.cfg.name, label: up.cfg.label, url: up.cfg.url, ok: up.ok, upstreamTools: up.tools.length, exposed: exposed, error: up.err });
     }
-    return { content: [{ type: 'text', text: JSON.stringify({ server: serverName, version: serverVersion, exposedTools: route.size, localTools: LOCAL_TOOLS.length, upstreams: st }, null, 2) }] };
+    return { content: [{ type: 'text', text: JSON.stringify({ server: serverName, version: serverVersion, exposedTools: route.size, localTools: localTools().length, upstreams: st }, null, 2) }] };
   }
-  if (name === 'web_stack_rotation') {
+  if (name === helperPrefix + '_rotation') {
     const kp = keyProxyCfg || {};
     const base = kp.base || 'http://key-proxy';
     const relays = kp.relays || {};
@@ -220,7 +224,7 @@ async function localCall(name) {
     }
     return { content: [{ type: 'text', text: JSON.stringify({ keyProxy: base, relays: rows }, null, 2) }] };
   }
-  if (name === 'web_stack_refresh') {
+  if (name === helperPrefix + '_refresh') {
     await reconcile();
     for (const up of upstreams.values()) if (up.ok) await up.refreshTools();
     const tools = build();
@@ -241,19 +245,19 @@ async function handle(msg) {
     if (msg.method === 'ping') return out({ jsonrpc: '2.0', id: id, result: {} });
     if (msg.method === 'tools/list') {
       await reconcile();
-      const tools = build().concat(LOCAL_TOOLS);
+      const tools = build().concat(localTools());
       return out({ jsonrpc: '2.0', id: id, result: { tools: tools } });
     }
     if (msg.method === 'tools/call') {
       const name = msg.params && msg.params.name;
       const args = (msg.params && msg.params.arguments) || {};
-      if (name === 'web_stack_status' || name === 'web_stack_refresh' || name === 'web_stack_rotation') {
+      if (name === helperPrefix + '_status' || name === helperPrefix + '_refresh' || name === helperPrefix + '_rotation') {
         const r = await localCall(name);
         return out({ jsonrpc: '2.0', id: id, result: r });
       }
       if (route.size === 0) { await reconcile(); build(); }
       const entry = route.get(name);
-      if (!entry) return out({ jsonrpc: '2.0', id: id, error: { code: -32602, message: 'unknown tool: ' + name + ' (call web_stack_status to list upstreams)' } });
+      if (!entry) return out({ jsonrpc: '2.0', id: id, error: { code: -32602, message: 'unknown tool: ' + name + ' (call ' + helperPrefix + '_status to list upstreams)' } });
       const r = await entry.up.call(entry.originalName, args);
       if (r && r.error !== undefined) return out({ jsonrpc: '2.0', id: id, error: r.error });
       return out({ jsonrpc: '2.0', id: id, result: (r && r.result !== undefined) ? r.result : r });
