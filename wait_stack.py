@@ -1,5 +1,5 @@
 import socket, time, os
-ports = [4040, 4041, 4042, 4043]
+ports = [4040, 4041, 4042, 4043, 3000]
 for p in ports:
     for _ in range(120):
         try:

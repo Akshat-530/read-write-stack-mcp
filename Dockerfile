@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Read-Write-Stack — ONE container: filesystem + shell + python-interpreter +
-# genoffice, all with ROOT access, aggregated behind a single MCP endpoint.
+# genoffice + SmartDB, all with ROOT access, aggregated behind a single MCP endpoint.
 FROM python:3.12-slim
 ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
 
@@ -24,6 +24,15 @@ RUN pip install --no-cache-dir supervisor
 RUN python -m venv /opt/shellvenv && /opt/shellvenv/bin/pip install --no-cache-dir "mcp<2" shell-mcp-server
 RUN python -m venv /opt/pyvenv    && /opt/pyvenv/bin/pip install --no-cache-dir "mcp<2" mcp-python-interpreter
 
+# SmartDB (universal DB gateway). Source install (the PyPI build omits Redis/Mongo/...).
+# NOTE: cx_Oracle is intentionally omitted (its setup.py needs pkg_resources, removed
+# from modern setuptools) — oracledb covers Oracle.
+RUN python -m venv /opt/smartdbvenv \
+ && /opt/smartdbvenv/bin/pip install --no-cache-dir setuptools wheel hatchling \
+ && /opt/smartdbvenv/bin/pip install --no-cache-dir "mcp<2" python-dotenv starlette uvicorn PyJWT sqlalchemy pymysql psycopg2-binary oracledb pymssql pyodbc "pydantic-settings~=2.10.1" "click~=8.2.1" sqlparse redis pymongo pymilvus elasticsearch kafka-python-ng \
+ && git clone --depth 1 https://github.com/wenb1n-dev/SmartDB_MCP.git /opt/smartdb-src \
+ && /opt/smartdbvenv/bin/pip install --no-cache-dir --no-deps /opt/smartdb-src
+
 # GenOffice engine source (loaded by mcp-genoffice)
 RUN git clone --depth 1 https://github.com/genspark-ai/genoffice.git /opt/genoffice-src \
  && (cd /opt/genoffice-src && (npm install --no-audit --no-fund || true))
@@ -36,6 +45,8 @@ COPY wait_stack.py /opt/wait_stack.py
 COPY shell_launcher.py /opt/shell_launcher.py
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 COPY config/config.example.json /data/config/config.json
+COPY config/database_config.example.json /data/config/database_config.json
+COPY config/smartdb.env /data/config/smartdb.env
 
 EXPOSE 4034
 CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
