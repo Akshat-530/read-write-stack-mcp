@@ -1,0 +1,9 @@
+{
+  "server": { "name": "Read-Write-Stack", "version": "1.0.0" },
+  "upstreams": [
+    { "name": "filesystem", "label": "fs",     "url": "http://127.0.0.1:4040/mcp", "prefix": "", "include": [], "exclude": [], "enabled": true, "description": "official filesystem MCP: read/write/edit/move/search files (root)" },
+    { "name": "shell",      "label": "shell",  "url": "http://127.0.0.1:4041/mcp", "prefix": "", "include": [], "exclude": [], "enabled": true, "description": "run shell commands (bash/sh) as root" },
+    { "name": "python",     "label": "python", "url": "http://127.0.0.1:4042/mcp", "prefix": "", "include": [], "exclude": [], "enabled": true, "description": "execute Python, pip install, read/write files (system access)" },
+    { "name": "genoffice",  "label": "genoffice", "url": "http://127.0.0.1:4043/mcp", "prefix": "", "include": [], "exclude": [], "enabled": true, "description": "docx/xlsx/pptx/pdf read + byte-preserving edit" }
+  ]
+}

@@ -1,0 +1,23 @@
+services:
+  read-write-stack:
+    image: ghcr.io/akshat-530/read-write-stack-mcp:latest
+    container_name: read-write-stack
+    restart: unless-stopped
+    user: root
+    environment:
+      - WEBSTACK_CONFIG=/data/config/config.json
+      - MCP_ALLOW_SYSTEM_ACCESS=1
+      - GENOFFICE_SRC=/opt/genoffice-src
+      - COMMAND_TIMEOUT=300
+    ports:
+      - "127.0.0.1:4034:4034"
+    volumes:
+      - ./config/config.example.json:/data/config/config.json:ro
+      # Mount host directories for full read/write reach (examples):
+      # - type: bind
+      #   source: "C:\\"
+      #   target: /host/c
+      # - type: bind
+      #   source: "D:\\"
+      #   target: /host/d
+      - ./workspace:/work
