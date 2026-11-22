@@ -2,17 +2,18 @@
 
 # 📂 Read-Write-Stack MCP
 
-### 🔓 **One MCP server. Full read/write on your machine. One container.** 🔓
+### 🔓 **One MCP server. Root access. Read & write anything — files, shell, Python, documents AND databases.** 🔓
 
-**45 tools · filesystem + shell + Python + GenOffice · root access**
+**56 tools · filesystem + shell + Python + GenOffice + databases · root access**
 
 [![repo](https://img.shields.io/badge/repo-public-2ea043?style=for-the-badge&logo=github)](#)
-[![tools](https://img.shields.io/badge/tools-45-6f42c1?style=for-the-badge)](#-tool-coverage)
+[![tools](https://img.shields.io/badge/tools-56-6f42c1?style=for-the-badge)](#-tool-coverage)
+[![databases](https://img.shields.io/badge/databases-10%20sources-1f6feb?style=for-the-badge)](#-databases-read--write)
 [![root](https://img.shields.io/badge/access-root%20%F0%9F%94%93-critical?style=for-the-badge)](#-root-access)
 [![docker](https://img.shields.io/badge/ghcr.io-read--write--stack--mcp-2496ed?style=for-the-badge&logo=docker&logoColor=white)](#-quick-start)
 [![license](https://img.shields.io/badge/license-MIT-2ea043?style=for-the-badge)](#-license)
 
-<sub>Point your client at <b>one</b> endpoint — <code>http://127.0.0.1:4034/mcp</code> — and read, write, run and edit everything.</sub>
+<sub>Point your client at <b>one</b> endpoint — <code>http://127.0.0.1:4034/mcp</code> — and read, write, run, edit and query everything.</sub>
 
 </div>
 
@@ -20,78 +21,115 @@
 
 ## 🚀 What is this?
 
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│   Instead of wiring FOUR MCP servers into your client…                  │
-│     a filesystem server · a shell server · a python server · genoffice  │
-│                                                                        │
-│   Connect ONE.  📂 Read-Write-Stack merges them behind one endpoint.    │
-└────────────────────────────────────────────────────────────────────────┘
-```
+The container runs every upstream on `127.0.0.1`, the **aggregator** exposes their merged tools, and each call is routed to the right server. It runs as **root** and mounts your drives, so an agent can read/write anywhere — including **any database you point it at**. 🔓
 
-The container runs every upstream on `127.0.0.1`, the **aggregator** exposes
-their merged tools, and each call is routed to the right server. It runs as
-**root** and mounts your drives, so an agent can read/write anywhere. 🔓
+Instead of wiring FIVE MCP servers into your client (filesystem · shell · python · genoffice · SmartDB) — connect ONE.
 
 ---
 
-## 🧭 Architecture
+## 🗄️ Databases (read & write)
 
-```mermaid
-flowchart LR
-  C["🤖 MCP client<br/>Kilo · Cursor · …"]:::c
-  A["📂 Read-Write-Stack<br/>:4034/mcp"]:::a
+SmartDB is a universal gateway. **Connect any database by adding a pool** — its tools register automatically, and with role **`admin`** you get **full read + write** (DDL + DML).
 
-  subgraph BOX["📦 read-write-stack container (root)"]
-    direction LR
-    FS["🗂️ filesystem<br/>read/write/edit/move"]:::u
-    SH["🐚 shell<br/>bash execute_command"]:::u
-    PY["🐍 python<br/>run code · pip · files"]:::u
-    GO["📄 genoffice<br/>docx/xlsx/pptx/pdf"]:::u
-  end
+| Type | Paradigm | Read | Write |
+|---|---|---|---|
+| `mysql` (MySQL 5.6+, MariaDB 10+) | relational | ✔ | ✔ `execute_sql` |
+| `postgresql` (9.6+, YMatrix) | relational | ✔ | ✔ `execute_sql` |
+| `oracle` (12+) | relational | ✔ | ✔ `execute_sql` |
+| `mssqlserver` (SQL Server 2012+) | relational | ✔ | ✔ `execute_sql` |
+| `redis` (5.0+) | KV | ✔ | ✔ `execute_command`, `scan_keys`, `get_key_info` |
+| `mongodb` (4.0+) | document | ✔ | ✔ `execute_mongo_query` / `execute_mongo_write` |
+| `milvus` (2.3+) | vector | ✔ | — (search only) |
+| `elasticsearch` (7/8/9) | search | ✔ | — (query only) |
+| `kafka` | message queue | ✔ | — (topic/offset/lag only) |
 
-  D["💾 host drives C: · D: · G:<br/>+ /work"]:::d
+> Universal on every source: `get_db_health`, `get_db_version`. Relational extras: `get_table_desc`, `get_table_index`, `get_table_name`, `sql_creator`, `sql_optimize`.
 
-  C -->|"single connection"| A
-  A --> FS & SH & PY & GO
-  FS & SH & PY & GO --> D
+### Connect your database (2 steps)
 
-  classDef c fill:#1f6feb,color:#fff,stroke:none;
-  classDef a fill:#6f42c1,color:#fff,stroke:none;
-  classDef u fill:#0d1117,color:#e6edf3,stroke:#30363d;
-  classDef d fill:#9e6a03,color:#fff,stroke:none;
+**1.** Put a pool in `database_config.json` (mounted at `/data/config/database_config.json`):
+
+```json
+{
+  "default": {
+    "host": "host.docker.internal",
+    "port": 3306,
+    "user": "root",
+    "password": "your_password",
+    "database": "your_database",
+    "role": "admin",
+    "pool_size": 10,
+    "type": "mysql"
+  },
+  "redis": {
+    "host": "host.docker.internal",
+    "port": 6379,
+    "user": "default",
+    "password": "your_password",
+    "database": "0",
+    "db": 0,
+    "role": "admin",
+    "pool_size": 50,
+    "type": "redis"
+  }
+}
 ```
 
----
+**2.** Reload: `docker restart read-write-stack`
 
-## 🧰 Tool coverage — `45 tools`
+Then ask your agent, e.g. *"run SELECT * FROM users LIMIT 10 on the default pool"* or *"SET a key in redis"*.
 
-| | Upstream | Emoji | Adds | Tools |
-|---|---|---|---|---|
-| 🗂️ | **filesystem** (official MCP) | files | read/write/edit/move/copy/search, dir tree, allowed-dirs | `16` |
-| 🐚 | **shell** (`shell-mcp-server`) | shell | `execute_command` (bash), timeout control | `1` |
-| 🐍 | **python** (`mcp-python-interpreter`) | python | run code/file, pip install, read/write files, sessions | `10` |
-| 📄 | **genoffice** (`mcp-genoffice`) | documents | docx/xlsx/pptx/pdf **read** + byte-preserving edit/create | `15` |
-| 🧩 | **local** | helpers | `web_stack_status` · `web_stack_refresh` · `web_stack_rotation` | `3` |
+### Roles
 
-> 💡 Collisions are auto-namespaced: `read_file` / `write_file` / `list_directory`
-> exist in both filesystem and python, so they appear as **`fs__*`** and **`python__*`**.
+| role | MySQL/PostgreSQL/Oracle/SQL Server | Redis / MongoDB |
+|---|---|---|
+| `readonly` | SELECT/SHOW/DESCRIBE/EXPLAIN | reads only |
+| `writer` | + INSERT/UPDATE/DELETE | + writes |
+| `admin` | + CREATE/ALTER/DROP/TRUNCATE | full |
+
+> **`admin` = full read/write (root-equivalent).** That's the shipped default.
+
+### Verified
+
+- ✅ Live-connected a **Redis 7.4.12** — `get_db_version` returned `Redis Version: 7.4.12`; `scan_keys`/`get_key_info`/`execute_command` exposed at `admin`.
+- ✅ Pools load: `default, postgresql, oracle, mssql, redis`.
+
+### Gotchas (from the build's own validator)
+
+- **Every pool needs `user`, `password` and `database`** — even Redis (use `user: "default"`, `database: "0"`). Missing any → the pool is rejected.
+- The pool loader is **all-or-nothing**: keep entries valid.
+- **Milvus connects at startup** — it needs a live server (a placeholder will stop SmartDB). The shipped template ships only pools that load cleanly.
+- `host.docker.internal` reaches databases on your host; on Linux add `--add-host=host.docker.internal:host-gateway`.
 
 ---
 
 ## 🔓 Root access
 
-The container runs as **`root`** and mounts your drives **read-write**:
+The container runs as **root** and mounts your drives **read-write**:
 
 | Layer | Setting |
 |---|---|
-| 🗂️ filesystem | allowed directory = `/` (everything) |
-| 🐍 python | `MCP_ALLOW_SYSTEM_ACCESS=1` (path checks lifted) |
-| 🐚 shell | allowed `/` · runs as root |
+| 🗂️ filesystem | allowed directory = `/` |
+| 🐍 python | `MCP_ALLOW_SYSTEM_ACCESS=1` |
+| 🐚 shell | allowed `/`, runs as root |
 | 📄 genoffice | no path restriction |
+| 🗄️ SmartDB | `role: admin` = full DB read/write |
 | 💾 mounts | `C:\` · `D:\` · `G:\` + `/work`, all `rw` |
 
-> ⚠️ This is **full-machine read/write** by design. Only connect trusted agents.
+> ⚠️ Full-machine read/write by design. Only connect trusted agents.
+
+---
+
+## 🧰 Tool coverage — `56 tools`
+
+| Upstream | Adds | Tools |
+|---|---|---|
+| 🗂️ **filesystem** | read/write/edit/move/copy/search, dir tree | `16` |
+| 🐚 **shell** | `execute_command` (bash) | `1` |
+| 🐍 **python** | run code/file, pip install, read/write files | `10` |
+| 📄 **genoffice** | docx/xlsx/pptx/pdf read + byte-preserving edit | `15` |
+| 🗄️ **SmartDB** | databases (see above) | `8` (+3 per Redis pool) |
+| 🧩 **local** | `web_stack_status` · `web_stack_refresh` · `web_stack_rotation` | `3` |
 
 ---
 
@@ -114,25 +152,7 @@ Or with the published image:
 docker compose -f docker-compose.example.yml up -d
 ```
 
-Then connect your MCP client ➜ **`http://127.0.0.1:4034/mcp`** 🎉
-
----
-
-## ⚙️ Configuration
-
-The image is self-contained: the aggregator config is baked at
-`/data/config/config.json` and `WEBSTACK_CONFIG`, `MCP_ALLOW_SYSTEM_ACCESS=1`
-and `GENOFFICE_SRC` are set in the image. Override the config by mounting your own:
-
-```bash
--v ./my-config.json:/data/config/config.json:ro
-```
-
-Per upstream you can set `include` (allowlist, `[]` = all), `exclude`, `prefix`
-and `enabled`.
-
-> Note: `web_stack_rotation` is exposed for parity with the Web-Stack but is a
-> **no-op here** (this stack has no API-key rotation).
+Then connect your MCP client to **`http://127.0.0.1:4034/mcp`**.
 
 ---
 
@@ -141,63 +161,45 @@ and `enabled`.
 **Claude Desktop / Cursor** (`mcpServers`):
 
 ```json
-{
-  "mcpServers": {
-    "read-write-stack": {
-      "type": "remote",
-      "url": "http://127.0.0.1:4034/mcp"
-    }
-  }
-}
+{ "mcpServers": { "read-write-stack": { "type": "remote", "url": "http://127.0.0.1:4034/mcp" } } }
 ```
 
 **Kilo** (`kilo.jsonc`):
 
 ```jsonc
-{
-  "mcp": {
-    "read-write-stack-mcp": {
-      "type": "remote",
-      "url": "http://127.0.0.1:4034/mcp",
-      "enabled": true,
-      "timeout": 1800000
-    }
-  }
-}
+{ "mcp": { "read-write-stack-mcp": { "type": "remote", "url": "http://127.0.0.1:4034/mcp", "enabled": true, "timeout": 1800000 } } }
 ```
 
-Reload the client → **45 tools** appear. 🎯 Sanity check: call **`web_stack_status`**.
+Reload → **56 tools** appear. Sanity check: call **`web_stack_status`**.
 
 ---
 
 ## 🛠️ Operations
 
 ```bash
-docker exec read-write-stack supervisorctl status   # ✅ every upstream
-docker logs -f read-write-stack                     # 📜 live logs
+docker exec read-write-stack supervisorctl status
+docker logs -f read-write-stack
 ```
 
-Every upstream is **supervised** — auto-restarts on crash. 🩹
+Supervised upstreams: `filesystem`, `shell`, `python`, `genoffice`, `smartdb`.
 
 ---
 
 ## 🩺 Troubleshooting
 
-| 😵 Symptom | 🛠️ Fix |
+| Symptom | Fix |
 |---|---|
-| Docker build fails on python MCPs | they need the **MCP Python SDK 1.x** — the image pins `mcp<2` in isolated venvs |
-| `shell` / `python` upstream not OK | check `supervisorctl status`; the shell MCP is launched via an async wrapper |
-| genoffice tools missing | `mcp-genoffice` loads the GenOffice engine from `/opt/genoffice-src` (`GENOFFICE_SRC`) |
-| A new drive not reachable | add it to the compose `volumes` |
-| Want fewer/more tools | edit `config/config.example.json` (`include`/`exclude`/`enabled`) → mount at `/data/config/config.json` → restart |
+| DB tools not appearing | pool entry invalid → check `supervisorctl status` + `docker logs`; every pool needs `user`+`password`+`database` |
+| A pool rejected at startup | fix its fields; the loader is all-or-nothing |
+| Milvus stops the server | point it at a live Milvus, or remove that pool |
+| SQL tool errors can't connect | DB not reachable / wrong creds |
+| shell / python upstream not OK | shell runs via an async launcher; check `supervisorctl` |
 
 ---
 
 ## 📜 License
 
-MIT — see [LICENSE](LICENSE).
-Upstream MCP servers and GenOffice keep their own licenses (GenOffice engine is Apache-2.0,
-loaded at runtime).
+MIT — see [LICENSE](LICENSE). Upstream MCP servers, GenOffice (Apache-2.0 engine) and SmartDB keep their own licenses.
 
 <div align="center">
 <sub>Built with 📂 by <a href="https://github.com/Akshat-530">Akshat-530</a></sub>

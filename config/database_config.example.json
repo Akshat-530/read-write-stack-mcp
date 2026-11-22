@@ -1,0 +1,68 @@
+{
+  "default": {
+    "host": "host.docker.internal",
+    "port": 3306,
+    "user": "root",
+    "password": "change-me",
+    "database": "your_database",
+    "role": "admin",
+    "pool_size": 10,
+    "max_overflow": 20,
+    "pool_recycle": 3600,
+    "pool_timeout": 30,
+    "type": "mysql"
+  },
+  "postgresql": {
+    "host": "host.docker.internal",
+    "port": 5432,
+    "user": "postgres",
+    "password": "change-me",
+    "database": "postgres",
+    "schema": "public",
+    "role": "admin",
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_recycle": 3600,
+    "pool_timeout": 30,
+    "type": "postgresql"
+  },
+  "oracle": {
+    "host": "host.docker.internal",
+    "port": 1521,
+    "user": "system",
+    "password": "change-me",
+    "database": "xe",
+    "service_name": "XE",
+    "role": "admin",
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_recycle": 3600,
+    "pool_timeout": 30,
+    "type": "oracle"
+  },
+  "mssql": {
+    "host": "host.docker.internal",
+    "port": 1433,
+    "user": "sa",
+    "password": "change-me",
+    "database": "master",
+    "schema": "dbo",
+    "role": "admin",
+    "pool_size": 5,
+    "max_overflow": 10,
+    "pool_recycle": 3600,
+    "pool_timeout": 30,
+    "type": "mssqlserver"
+  },
+  "redis": {
+    "host": "host.docker.internal",
+    "port": 6379,
+    "user": "default",
+    "password": "change-me",
+    "database": "0",
+    "db": 0,
+    "role": "admin",
+    "pool_size": 50,
+    "type": "redis"
+  }
+}
