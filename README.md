@@ -21,15 +21,32 @@
 
 ## 🚀 What is this?
 
-The container runs every upstream on `127.0.0.1`, the **aggregator** exposes their merged tools, and each call is routed to the right server. It runs as **root** and mounts your drives, so an agent can read/write anywhere — including **any database you point it at**. 🔓
+Five MCP servers — a filesystem server, a shell server, a Python interpreter, a
+document engine and a universal database gateway — **consolidated into one
+container**, behind **one** MCP endpoint, running as **root**.
 
-Instead of wiring FIVE MCP servers into your client (filesystem · shell · python · genoffice · SmartDB) — connect ONE.
+```text
+       before                                 after
+  ┌──────────────┐                      ┌───────────────────────────┐
+  │ filesystem   │                      │        📂 Read-Write-Stack │
+  │ shell        │   ───────►           │        one endpoint        │
+  │ python       │                      │        :4034/mcp           │
+  │ genoffice    │                      │        root · 56 tools     │
+  │ databases    │                      └───────────────────────────┘
+  └──────────────┘
+```
+
+An agent connected here can read and write **any file on your drives**, run
+**any shell command**, execute **Python**, edit **Office documents** — and
+**query or modify any database** you point it at. One connection, full power.
 
 ---
 
 ## 🗄️ Databases (read & write)
 
-SmartDB is a universal gateway. **Connect any database by adding a pool** — its tools register automatically, and with role **`admin`** you get **full read + write** (DDL + DML).
+Powered by **SmartDB** — a universal gateway. **Connect any database by adding a
+pool**; its tools register automatically, and with role **`admin`** you get
+**full read + write** (DDL + DML).
 
 | Type | Paradigm | Read | Write |
 |---|---|---|---|
@@ -43,9 +60,10 @@ SmartDB is a universal gateway. **Connect any database by adding a pool** — it
 | `elasticsearch` (7/8/9) | search | ✔ | — (query only) |
 | `kafka` | message queue | ✔ | — (topic/offset/lag only) |
 
-> Universal on every source: `get_db_health`, `get_db_version`. Relational extras: `get_table_desc`, `get_table_index`, `get_table_name`, `sql_creator`, `sql_optimize`.
+> Universal on every source: `get_db_health`, `get_db_version`.
+> Relational extras: `get_table_desc`, `get_table_index`, `get_table_name`, `sql_creator`, `sql_optimize`.
 
-### Connect your database (2 steps)
+### Connect your database — 2 steps
 
 **1.** Put a pool in `database_config.json` (mounted at `/data/config/database_config.json`):
 
@@ -77,29 +95,46 @@ SmartDB is a universal gateway. **Connect any database by adding a pool** — it
 
 **2.** Reload: `docker restart read-write-stack`
 
-Then ask your agent, e.g. *"run SELECT * FROM users LIMIT 10 on the default pool"* or *"SET a key in redis"*.
+Then ask your agent, e.g. *“run SELECT * FROM users LIMIT 10 on the default pool”*
+or *“SET a key in redis”* — it just works.
 
 ### Roles
 
-| role | MySQL/PostgreSQL/Oracle/SQL Server | Redis / MongoDB |
+| role | MySQL / PostgreSQL / Oracle / SQL Server | Redis / MongoDB |
 |---|---|---|
-| `readonly` | SELECT/SHOW/DESCRIBE/EXPLAIN | reads only |
-| `writer` | + INSERT/UPDATE/DELETE | + writes |
-| `admin` | + CREATE/ALTER/DROP/TRUNCATE | full |
+| `readonly` | SELECT / SHOW / DESCRIBE / EXPLAIN | reads only |
+| `writer` | + INSERT / UPDATE / DELETE | + writes |
+| `admin` | + CREATE / ALTER / DROP / TRUNCATE | full |
 
 > **`admin` = full read/write (root-equivalent).** That's the shipped default.
 
 ### Verified
 
-- ✅ Live-connected a **Redis 7.4.12** — `get_db_version` returned `Redis Version: 7.4.12`; `scan_keys`/`get_key_info`/`execute_command` exposed at `admin`.
-- ✅ Pools load: `default, postgresql, oracle, mssql, redis`.
+- ✅ Live-connected a **Redis 7.4.12** — `get_db_version` returned `Redis Version: 7.4.12`; `scan_keys`, `get_key_info`, `execute_command` exposed at `admin`.
+- ✅ Pools load cleanly: `default, postgresql, oracle, mssql, redis`.
 
-### Gotchas (from the build's own validator)
+### Notes (from the build's own validator)
 
 - **Every pool needs `user`, `password` and `database`** — even Redis (use `user: "default"`, `database: "0"`). Missing any → the pool is rejected.
-- The pool loader is **all-or-nothing**: keep entries valid.
-- **Milvus connects at startup** — it needs a live server (a placeholder will stop SmartDB). The shipped template ships only pools that load cleanly.
+- The pool loader is **all-or-nothing** — keep entries valid.
+- **Milvus connects at startup** — point it at a live server (a placeholder will stop SmartDB).
 - `host.docker.internal` reaches databases on your host; on Linux add `--add-host=host.docker.internal:host-gateway`.
+
+---
+
+## 🧰 Tool coverage — `56 tools`
+
+| Upstream | What it adds | Tools |
+|---|---|---|
+| 🗂️ **filesystem** (official MCP) | read / write / edit / move / copy / search files, directory tree | `16` |
+| 🐚 **shell** | `execute_command` (bash) as root | `1` |
+| 🐍 **python** | run code / file, `pip install`, read/write files | `10` |
+| 📄 **genoffice** | docx / xlsx / pptx / pdf read + byte-preserving edit | `15` |
+| 🗄️ **SmartDB** | databases — SQL, Redis, Mongo, … (see above) | `8` + `3` per Redis pool |
+| 🔧 **stack helpers** | `rw_status` · `rw_refresh` · `rw_rotation` (reachability, config reload, key-rotation status) | `3` |
+
+> The three helpers are served by the aggregator itself. Their prefix is
+> configurable (`server.helperPrefix`, here `rw`).
 
 ---
 
@@ -117,19 +152,6 @@ The container runs as **root** and mounts your drives **read-write**:
 | 💾 mounts | `C:\` · `D:\` · `G:\` + `/work`, all `rw` |
 
 > ⚠️ Full-machine read/write by design. Only connect trusted agents.
-
----
-
-## 🧰 Tool coverage — `56 tools`
-
-| Upstream | Adds | Tools |
-|---|---|---|
-| 🗂️ **filesystem** | read/write/edit/move/copy/search, dir tree | `16` |
-| 🐚 **shell** | `execute_command` (bash) | `1` |
-| 🐍 **python** | run code/file, pip install, read/write files | `10` |
-| 📄 **genoffice** | docx/xlsx/pptx/pdf read + byte-preserving edit | `15` |
-| 🗄️ **SmartDB** | databases (see above) | `8` (+3 per Redis pool) |
-| 🧩 **local** | `web_stack_status` · `web_stack_refresh` · `web_stack_rotation` | `3` |
 
 ---
 
@@ -170,14 +192,31 @@ Then connect your MCP client to **`http://127.0.0.1:4034/mcp`**.
 { "mcp": { "read-write-stack-mcp": { "type": "remote", "url": "http://127.0.0.1:4034/mcp", "enabled": true, "timeout": 1800000 } } }
 ```
 
-Reload → **56 tools** appear. Sanity check: call **`web_stack_status`**.
+Reload → **56 tools** appear. Sanity check: call **`rw_status`**.
+
+---
+
+## ⚙️ Configuration
+
+| File | Purpose |
+|---|---|
+| `/data/config/config.json` | aggregator: which upstreams/tools are exposed |
+| `/data/config/database_config.json` | database pools |
+| `/data/config/smartdb.env` | SmartDB env (`DATABASE_CONFIG_FILE`, `SERVER_PORT`) |
+
+The image is **self-contained** (all three are baked). Override by mounting your own:
+
+```bash
+-v ./my-config.json:/data/config/config.json:ro
+-v ./my-databases.json:/data/config/database_config.json:ro
+```
 
 ---
 
 ## 🛠️ Operations
 
 ```bash
-docker exec read-write-stack supervisorctl status
+docker exec read-write-stack supervisorctl status     # every upstream
 docker logs -f read-write-stack
 ```
 
@@ -189,17 +228,18 @@ Supervised upstreams: `filesystem`, `shell`, `python`, `genoffice`, `smartdb`.
 
 | Symptom | Fix |
 |---|---|
-| DB tools not appearing | pool entry invalid → check `supervisorctl status` + `docker logs`; every pool needs `user`+`password`+`database` |
+| DB tools not appearing | pool entry invalid → check `rw_status` + `docker logs`; every pool needs `user`+`password`+`database` |
 | A pool rejected at startup | fix its fields; the loader is all-or-nothing |
 | Milvus stops the server | point it at a live Milvus, or remove that pool |
-| SQL tool errors can't connect | DB not reachable / wrong creds |
-| shell / python upstream not OK | shell runs via an async launcher; check `supervisorctl` |
+| SQL tool errors “can’t connect” | DB not reachable, or wrong credentials |
+| `shell` / `python` upstream not OK | shell runs via an async launcher; check `supervisorctl status` |
 
 ---
 
 ## 📜 License
 
-MIT — see [LICENSE](LICENSE). Upstream MCP servers, GenOffice (Apache-2.0 engine) and SmartDB keep their own licenses.
+MIT — see [LICENSE](LICENSE).
+Upstream MCP servers, GenOffice (Apache-2.0 engine) and SmartDB keep their own licenses.
 
 <div align="center">
 <sub>Built with 📂 by <a href="https://github.com/Akshat-530">Akshat-530</a></sub>
