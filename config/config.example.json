@@ -1,5 +1,5 @@
 {
-  "server": { "name": "Read-Write-Stack", "version": "1.1.0" },
+  "server": { "name": "Read-Write-Stack", "version": "1.1.1", "helperPrefix": "rw" },
   "upstreams": [
     { "name": "filesystem", "label": "fs",     "url": "http://127.0.0.1:4040/mcp", "prefix": "", "include": [], "exclude": [], "enabled": true, "description": "official filesystem MCP: read/write/edit/move/search files (root)" },
     { "name": "shell",      "label": "shell",  "url": "http://127.0.0.1:4041/mcp", "prefix": "", "include": [], "exclude": [], "enabled": true, "description": "run shell commands (bash/sh) as root" },
