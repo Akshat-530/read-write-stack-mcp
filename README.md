@@ -6,7 +6,7 @@
 
 **45 tools · filesystem + shell + Python + GenOffice · root access**
 
-[![repo](https://img.shields.io/badge/repo-private-red?style=for-the-badge&logo=github)](#)
+[![repo](https://img.shields.io/badge/repo-public-2ea043?style=for-the-badge&logo=github)](#)
 [![tools](https://img.shields.io/badge/tools-45-6f42c1?style=for-the-badge)](#-tool-coverage)
 [![root](https://img.shields.io/badge/access-root%20%F0%9F%94%93-critical?style=for-the-badge)](#-root-access)
 [![docker](https://img.shields.io/badge/ghcr.io-read--write--stack--mcp-2496ed?style=for-the-badge&logo=docker&logoColor=white)](#-quick-start)
