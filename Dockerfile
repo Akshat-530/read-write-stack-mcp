@@ -25,6 +25,8 @@ RUN python -m venv /opt/shellvenv && /opt/shellvenv/bin/pip install --no-cache-d
 RUN python -m venv /opt/pyvenv    && /opt/pyvenv/bin/pip install --no-cache-dir "mcp<2" mcp-python-interpreter
 
 # SmartDB (universal DB gateway). Source install (the PyPI build omits Redis/Mongo/...).
+# These are database *clients* only — NO database server is bundled; the user points
+# /data/config/database_config.json at their own database (any supported type).
 # NOTE: cx_Oracle is intentionally omitted (its setup.py needs pkg_resources, removed
 # from modern setuptools) — oracledb covers Oracle.
 RUN python -m venv /opt/smartdbvenv \

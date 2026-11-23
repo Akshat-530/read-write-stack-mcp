@@ -13,6 +13,9 @@ services:
       - "127.0.0.1:4034:4034"
     volumes:
       - ./config/config.example.json:/data/config/config.json:ro
+      # Point SmartDB at YOUR database: copy config/database_config.example.json to
+      # config/database_config.json, edit it, then uncomment the next line.
+      # - ./config/database_config.json:/data/config/database_config.json:ro
       # Mount host directories for full read/write reach (examples):
       # - type: bind
       #   source: "C:\\"
