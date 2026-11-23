@@ -21,15 +21,24 @@ jobs:
 
   public-package:
     # Keep the published GHCR image anonymously pullable (no `docker login`).
+    # NOTE: package visibility can only be changed with a CLASSIC PAT that has
+    # `write:packages` — fine-grained PATs and the Actions GITHUB_TOKEN are
+    # refused by the Packages API. Add a classic PAT as the PACKAGES_TOKEN repo
+    # secret to enable this; otherwise the step is skipped and visibility is
+    # left as-is.
     needs: docker
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
-      packages: write
       contents: read
     steps:
       - name: Ensure GHCR package visibility is public
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh api --method PATCH "/user/packages/container/${GITHUB_REPOSITORY#*/}" -f visibility=public
+          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+        run: |
+          if [ -z "$PACKAGES_TOKEN" ]; then
+            echo "PACKAGES_TOKEN not set (needs a classic PAT with write:packages) - skipping."
+            exit 0
+          fi
+          GH_TOKEN="$PACKAGES_TOKEN" gh api --method PATCH "/user/packages/container/${GITHUB_REPOSITORY#*/}" -f visibility=public
