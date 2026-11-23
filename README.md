@@ -4,10 +4,10 @@
 
 ### 🔓 **One MCP server. Root access. Read & write anything — files, shell, Python, documents AND databases.** 🔓
 
-**56 tools · filesystem + shell + Python + GenOffice + databases · root access**
+**53+ tools · filesystem + shell + Python + GenOffice + databases · root access**
 
 [![repo](https://img.shields.io/badge/repo-public-2ea043?style=for-the-badge&logo=github)](#)
-[![tools](https://img.shields.io/badge/tools-56-6f42c1?style=for-the-badge)](#-tool-coverage)
+[![tools](https://img.shields.io/badge/tools-53%2B-6f42c1?style=for-the-badge)](#-tool-coverage)
 [![databases](https://img.shields.io/badge/databases-10%20sources-1f6feb?style=for-the-badge)](#-databases-read--write)
 [![root](https://img.shields.io/badge/access-root%20%F0%9F%94%93-critical?style=for-the-badge)](#-root-access)
 [![docker](https://img.shields.io/badge/ghcr.io-read--write--stack--mcp-2496ed?style=for-the-badge&logo=docker&logoColor=white)](#-quick-start)
@@ -31,7 +31,7 @@ container**, behind **one** MCP endpoint, running as **root**.
   │ filesystem   │                      │        📂 Read-Write-Stack │
   │ shell        │   ───────►           │        one endpoint        │
   │ python       │                      │        :4034/mcp           │
-  │ genoffice    │                      │        root · 56 tools     │
+  │ genoffice    │                      │        root · 53+ tools    │
   │ databases    │                      └───────────────────────────┘
   └──────────────┘
 ```
@@ -44,9 +44,10 @@ An agent connected here can read and write **any file on your drives**, run
 
 ## 🗄️ Databases (read & write)
 
-Powered by **SmartDB** — a universal gateway. **Connect any database by adding a
-pool**; its tools register automatically, and with role **`admin`** you get
-**full read + write** (DDL + DML).
+Powered by **SmartDB** — a universal gateway. **No database is bundled**: you
+point it at **your** database and its tools register automatically. With role
+**`admin`** you get **full read + write** (DDL + DML). The image ships the
+*client drivers* only — there is no database server inside it.
 
 | Type | Paradigm | Read | Write |
 |---|---|---|---|
@@ -54,51 +55,55 @@ pool**; its tools register automatically, and with role **`admin`** you get
 | `postgresql` (9.6+, YMatrix) | relational | ✔ | ✔ `execute_sql` |
 | `oracle` (12+) | relational | ✔ | ✔ `execute_sql` |
 | `mssqlserver` (SQL Server 2012+) | relational | ✔ | ✔ `execute_sql` |
+| `dameng` (8.0+) | relational | ✔ | ✔ `execute_sql` |
 | `redis` (5.0+) | KV | ✔ | ✔ `execute_command`, `scan_keys`, `get_key_info` |
 | `mongodb` (4.0+) | document | ✔ | ✔ `execute_mongo_query` / `execute_mongo_write` |
 | `milvus` (2.3+) | vector | ✔ | — (search only) |
 | `elasticsearch` (7/8/9) | search | ✔ | — (query only) |
 | `kafka` | message queue | ✔ | — (topic/offset/lag only) |
 
-> Universal on every source: `get_db_health`, `get_db_version`.
+> Universal on every source: `get_db_version`, `get_db_health`.
 > Relational extras: `get_table_desc`, `get_table_index`, `get_table_name`, `sql_creator`, `sql_optimize`.
 
-### Connect your database — 2 steps
+### Connect your database
 
-**1.** Put a pool in `database_config.json` (mounted at `/data/config/database_config.json`):
+**1.** Fill in the single `default` pool that ships in `config/database_config.json`
+(baked at `/data/config/database_config.json`):
 
 ```json
 {
   "default": {
-    "host": "host.docker.internal",
+    "host": "your-db-host",
     "port": 3306,
-    "user": "root",
+    "user": "your_user",
     "password": "your_password",
     "database": "your_database",
     "role": "admin",
-    "pool_size": 10,
     "type": "mysql"
-  },
-  "redis": {
-    "host": "host.docker.internal",
-    "port": 6379,
-    "user": "default",
-    "password": "your_password",
-    "database": "0",
-    "db": 0,
-    "role": "admin",
-    "pool_size": 50,
-    "type": "redis"
   }
 }
 ```
 
-> Keep at least one pool literally named **`default`** — SmartDB requires it at startup.
+**2.** Set `type` to your database and fill in the connection fields — `mysql`,
+`postgresql`, `oracle`, `mssqlserver`, `dameng`, `redis`, `mongodb`, `milvus`,
+`elasticsearch` or `kafka`.
 
-**2.** Reload: `docker restart read-write-stack`
+**3.** Reload and ask your agent:
 
-Then ask your agent, e.g. *“run SELECT * FROM users LIMIT 10 on the default pool”*
-or *“SET a key in redis”* — it just works.
+```bash
+docker restart read-write-stack
+# e.g. "run SELECT * FROM users LIMIT 10 on the default pool"
+```
+
+> **`default` is required** — SmartDB needs one pool with that exact name. Connect
+> more databases by adding extra **named** pools (e.g. `"analytics"`, `"cache"`)
+> the same way; each one exposes its own tools.
+
+To keep credentials out of the image, mount a file from the host instead:
+
+```bash
+-v ./database_config.json:/data/config/database_config.json:ro
+```
 
 ### Roles
 
@@ -112,19 +117,22 @@ or *“SET a key in redis”* — it just works.
 
 ### Verified
 
-- ✅ Live-connected a **Redis 7.4.12** — `get_db_version` returned `Redis Version: 7.4.12`; `scan_keys`, `get_key_info`, `execute_command` exposed at `admin`.
-- ✅ Pools load cleanly: `default, postgresql, oracle, mssql, redis`.
+- ✅ Exercised end-to-end against a live **PostgreSQL 17**: `get_db_version`
+  returned the server version and `execute_sql` returned rows from the user's own
+  database.
 
-### Notes (from the build's own validator)
+### Notes
 
-- **Every pool needs `user`, `password` and `database`** — even Redis (use `user: "default"`, `database: "0"`). Missing any → the pool is rejected.
+- **Every pool needs `host`, `port`, `user`, `password`, `database`, `role` and `type`.**
+  Missing any → the pool is rejected. Redis pools take `user: "default"` and `database: "0"`.
 - The pool loader is **all-or-nothing** — keep entries valid.
+- Only DB **clients** are in the image — bring your own database server.
 - **Milvus connects at startup** — point it at a live server (a placeholder will stop SmartDB).
-- `host.docker.internal` reaches databases on your host; on Linux add `--add-host=host.docker.internal:host-gateway`.
+- `host.docker.internal` reaches a database on your host; on Linux add `--add-host=host.docker.internal:host-gateway`.
 
 ---
 
-## 🧰 Tool coverage — `56 tools`
+## 🧰 Tool coverage — `53+ tools`
 
 | Upstream | What it adds | Tools |
 |---|---|---|
@@ -135,8 +143,9 @@ or *“SET a key in redis”* — it just works.
 | 🗄️ **SmartDB** | databases — SQL, Redis, Mongo, ... (see above) | `8` + `3` per Redis pool |
 | 🔧 **stack helpers** | `rw_status` · `rw_refresh` · `rw_rotation` (reachability, config reload, key-rotation status) | `3` |
 
-> The three helpers are served by the aggregator itself. Their prefix is
-> configurable (`server.helperPrefix`, here `rw`).
+> A single relational pool gives **53** tools; each Redis pool adds its `3` KV
+> tools. The three helpers are served by the aggregator itself (prefix configurable
+> via `server.helperPrefix`, here `rw`).
 
 ---
 
@@ -152,7 +161,7 @@ mount them **read-write** yourself if you want that reach:
 | 🐚 shell | allowed `/`, runs as root |
 | 📄 genoffice | no path restriction |
 | 🗄️ SmartDB | `role: admin` = full DB read/write |
-| 💾 mounts | only `./workspace` → `/work` (rw); host drives (`C:\`, `D:\`, …) are **opt-in** via `docker-compose.example.yml` |
+| 💾 mounts | only `./workspace` → `/work` (rw); host drives (`C:\`, `D:\`, ...) are **opt-in** via `docker-compose.example.yml` |
 
 > ⚠️ Anything you mount read-write is fully readable and writable by any connected
 > agent. Only connect trusted agents, and prefer read-only (`:ro`) mounts.
@@ -196,7 +205,7 @@ Then connect your MCP client to **`http://127.0.0.1:4034/mcp`**.
 { "mcp": { "read-write-stack-mcp": { "type": "remote", "url": "http://127.0.0.1:4034/mcp", "enabled": true, "timeout": 1800000 } } }
 ```
 
-Reload → **56 tools** appear. Sanity check: call **`rw_status`**.
+Reload → **53+ tools** appear. Sanity check: call **`rw_status`**.
 
 ---
 
@@ -205,14 +214,14 @@ Reload → **56 tools** appear. Sanity check: call **`rw_status`**.
 | File | Purpose |
 |---|---|
 | `/data/config/config.json` | aggregator: which upstreams/tools are exposed |
-| `/data/config/database_config.json` | database pools |
+| `/data/config/database_config.json` | **your** database pools (`default` required) |
 | `/data/config/smartdb.env` | SmartDB env (`DATABASE_CONFIG_FILE`, `SERVER_PORT`) |
 
 The image is **self-contained** (all three are baked). Override by mounting your own:
 
 ```bash
 -v ./my-config.json:/data/config/config.json:ro
--v ./my-databases.json:/data/config/database_config.json:ro
+-v ./database_config.json:/data/config/database_config.json:ro
 ```
 
 ---
