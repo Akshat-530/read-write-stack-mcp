@@ -93,6 +93,8 @@ pool**; its tools register automatically, and with role **`admin`** you get
 }
 ```
 
+> Keep at least one pool literally named **`default`** — SmartDB requires it at startup.
+
 **2.** Reload: `docker restart read-write-stack`
 
 Then ask your agent, e.g. *“run SELECT * FROM users LIMIT 10 on the default pool”*
@@ -130,7 +132,7 @@ or *“SET a key in redis”* — it just works.
 | 🐚 **shell** | `execute_command` (bash) as root | `1` |
 | 🐍 **python** | run code / file, `pip install`, read/write files | `10` |
 | 📄 **genoffice** | docx / xlsx / pptx / pdf read + byte-preserving edit | `15` |
-| 🗄️ **SmartDB** | databases — SQL, Redis, Mongo, … (see above) | `8` + `3` per Redis pool |
+| 🗄️ **SmartDB** | databases — SQL, Redis, Mongo, ... (see above) | `8` + `3` per Redis pool |
 | 🔧 **stack helpers** | `rw_status` · `rw_refresh` · `rw_rotation` (reachability, config reload, key-rotation status) | `3` |
 
 > The three helpers are served by the aggregator itself. Their prefix is
@@ -140,7 +142,8 @@ or *“SET a key in redis”* — it just works.
 
 ## 🔓 Root access
 
-The container runs as **root** and mounts your drives **read-write**:
+The container runs as **root**. Host drives are **not** mounted by default —
+mount them **read-write** yourself if you want that reach:
 
 | Layer | Setting |
 |---|---|
@@ -149,9 +152,10 @@ The container runs as **root** and mounts your drives **read-write**:
 | 🐚 shell | allowed `/`, runs as root |
 | 📄 genoffice | no path restriction |
 | 🗄️ SmartDB | `role: admin` = full DB read/write |
-| 💾 mounts | `C:\` · `D:\` · `G:\` + `/work`, all `rw` |
+| 💾 mounts | only `./workspace` → `/work` (rw); host drives (`C:\`, `D:\`, …) are **opt-in** via `docker-compose.example.yml` |
 
-> ⚠️ Full-machine read/write by design. Only connect trusted agents.
+> ⚠️ Anything you mount read-write is fully readable and writable by any connected
+> agent. Only connect trusted agents, and prefer read-only (`:ro`) mounts.
 
 ---
 

@@ -34,8 +34,12 @@ RUN python -m venv /opt/smartdbvenv \
  && /opt/smartdbvenv/bin/pip install --no-cache-dir --no-deps /opt/smartdb-src
 
 # GenOffice engine source (loaded by mcp-genoffice)
+# Do NOT mask a failed install with `|| true`: a silent failure leaves the engine
+# with no node_modules and breaks every document tool at runtime. Fail loudly.
 RUN git clone --depth 1 https://github.com/genspark-ai/genoffice.git /opt/genoffice-src \
- && (cd /opt/genoffice-src && (npm install --no-audit --no-fund || true))
+ && cd /opt/genoffice-src \
+ && npm install --no-audit --no-fund \
+ && test -d node_modules
 ENV GENOFFICE_SRC=/opt/genoffice-src
 ENV WEBSTACK_CONFIG=/data/config/config.json
 ENV MCP_ALLOW_SYSTEM_ACCESS=1
